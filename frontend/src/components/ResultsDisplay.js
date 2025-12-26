@@ -148,7 +148,7 @@ function ResultsDisplay({ scholarshipResults, userProfile, onUnlock }) {
       {/* Lead Capture Modal */}
       {showLeadModal && (
         <LeadCaptureModal 
-          scholarships={scholarshipResults.scholarships}
+          scholarships={scholarshipResults}
           profile={userProfile || {}}
           onClose={() => setShowLeadModal(false)}
           onSuccess={() => {

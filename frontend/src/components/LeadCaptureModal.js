@@ -38,13 +38,11 @@ function LeadCaptureModal({ scholarships, profile, onClose, onSuccess }) {
         email: formData.email,
         phone: formData.phone,
         user_profile: profile,
-        scholarship_results: {
-          summary_probability: scholarships?.summary_probability || 0,
-          scholarships: scholarships || []
-        }
+        scholarship_results: scholarships
       };
 
-      const response = await fetch('http://localhost:5000/api/submit-lead', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/submit-lead`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

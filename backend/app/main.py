@@ -21,7 +21,8 @@ app.add_middleware(
     allow_origins=[
         settings.frontend_url,
         "http://localhost:3000",
-        "http://localhost:3001"
+        "http://localhost:3001",
+        "https://scholarship-finder2-seven.vercel.app"  # Vercel deployment
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -70,58 +71,43 @@ def calculate_scholarships(profile: UserProfile):
 
 # -------------------- LEAD SUBMIT --------------------
 @app.post("/api/submit-lead")
-async def submit_lead(lead_data: dict, background_tasks: BackgroundTasks):
+async def submit_lead(lead: LeadCapture, background_tasks: BackgroundTasks):
     """
     Save lead → Google Sheets → Send email
     """
     try:
-        name = lead_data.get("name")
-        email = lead_data.get("email")
-        phone = lead_data.get("phone")
-        user_profile = lead_data.get("user_profile")
-        scholarship_results = lead_data.get("scholarship_results")
+        print(f"📝 [LEAD SUBMIT] Received lead: {lead.email}")
+        
+        # ✅ Save to Google Sheets
+        print(f"📤 [SHEETS] Saving lead to Google Sheets...")
+        sheets_result = await SheetsService.save_lead(lead)
+        print(f"📥 [SHEETS] Save result: {sheets_result}")
 
-        if not all([name, email, phone, user_profile, scholarship_results]):
-            raise HTTPException(
-                status_code=400,
-                detail="Missing required fields"
-            )
-
-        profile_obj = UserProfile(**user_profile)
-        result_obj = ScholarshipResult(**scholarship_results)
-
-        lead = LeadCapture(
-            name=name,
-            email=email,
-            phone=phone,
-            user_profile=profile_obj,
-            scholarship_results=result_obj
-        )
-
-        # ✅ Save ONCE only
-        await SheetsService.save_lead(lead)
-
-        # ✅ Always send full scholarship report
+        # ✅ Queue email notification
+        print(f"📧 [EMAIL] Queuing email to {lead.email}...")
         background_tasks.add_task(
             EmailService.send_scholarship_report,
-            email,
-            name,
-            result_obj
+            lead.email,
+            lead.name,
+            lead.scholarship_results
         )
 
         return {
             "success": True,
             "message": "Lead submitted successfully. Check your email for the full report!",
-            "email": email
+            "email": lead.email,
+            "sheets_saved": sheets_result
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ERROR] Lead submission failed: {e}")
+        print(f"❌ [ERROR] Lead submission failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail="Unable to submit lead at this time."
+            detail=f"Unable to submit lead: {str(e)}"
         )
 
 # -------------------- SEND EMAIL (OPTIONAL) --------------------
